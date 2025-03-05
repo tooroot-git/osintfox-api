@@ -1,8 +1,10 @@
 import { fetchWithRetry } from '../utils/safeFetch.js';
+import { API_KEYS } from '../config.js';
+
 async function fetchReverseWhois(query, env) {
   const url = "https://reverse-whois.whoisxmlapi.com/api/v2";
   const body = {
-    apiKey: env.WhoisXML_API_KEY,
+    apiKey: API_KEYS.reverseWhois,
     searchType: "current",
     mode: "purchase",
     punycode: true,

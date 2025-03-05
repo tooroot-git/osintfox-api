@@ -7,6 +7,7 @@ import { fetchOSINT } from './services/osintIndustries.js';
 import { fetchWithRetry } from './utils/safeFetch.js';
 import { putCache } from './utils/cache.js';
 import { updateStats } from './utils/logger.js';
+import { API_KEYS } from './config.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -37,7 +38,11 @@ export default {
       }
 
       // Free email domains
-      const freeEmailDomains = ["gmail.com", "hotmail.com", "yahoo.com", "outlook.com", "live.com"];
+      const emailServicesText = await fetch(new URL('./data/EmailServices.txt', import.meta.url))
+        .then(res => res.text());
+      const EmailServices = emailServicesText.split('\n')
+        .map(line => line.trim())
+        .filter(line => line);
 
       // Initialize results and tasks
       const results = {
@@ -60,76 +65,76 @@ export default {
       // Layer 1: Initial Queries
       if (type === "ip") {
         tasks.push(
-          fetchAndCache("reverse_ip", () => fetchWhoisXML("reverse-ip", `ip=${query}`, env))
+          fetchAndCache("reverse_ip", () => fetchWhoisXML("reverse-ip", `ip=${query}`, env, API_KEYS.whoisxml))
             .then(data => results.reverseIP = data),
-          fetchAndCache("reverse_dns", () => fetchWhoisXML("reverse-dns", `ip=${query}`, env))
+          fetchAndCache("reverse_dns", () => fetchWhoisXML("reverse-dns", `ip=${query}`, env, API_KEYS.whoisxml))
             .then(data => results.reverseDNS = data),
-          fetchAndCache("shodan", () => fetchShodan(query, env))
+          fetchAndCache("shodan", () => fetchShodan(query, env, API_KEYS.shodan))
             .then(data => results.shodan = data),
-          fetchAndCache("ip_geo", () => fetchWhoisXML("ip-geolocation", `ipAddress=${query}`, env))
+          fetchAndCache("ip_geo", () => fetchWhoisXML("ip-geolocation", `ipAddress=${query}`, env, API_KEYS.whoisxml))
             .then(data => results.geo = data),
-          fetchAndCache("ip_netblocks", () => fetchWhoisXML("ip-netblocks", `ip=${query}`, env))
+          fetchAndCache("ip_netblocks", () => fetchWhoisXML("ip-netblocks", `ip=${query}`, env, API_KEYS.whoisxml))
             .then(data => results.netblocks = data),
-          fetchAndCache("threat_intel", () => fetchWhoisXML("threat-intelligence", `ip=${query}`, env))
+          fetchAndCache("threat_intel", () => fetchWhoisXML("threat-intelligence", `ip=${query}`, env, API_KEYS.whoisxml))
             .then(data => results.threatIntel = data)
         );
       } else if (type === "domain") {
         tasks.push(
-          fetchAndCache("whois", () => fetchWhois(query, env))
+          fetchAndCache("whois", () => fetchWhois(query, env, API_KEYS.whoisxml))
             .then(data => results.whois = data),
-          fetchAndCache("dns_lookup", () => fetchWhoisXML("dns-lookup", `domainName=${query}`, env))
+          fetchAndCache("dns_lookup", () => fetchWhoisXML("dns-lookup", `domainName=${query}`, env, API_KEYS.whoisxml))
             .then(data => results.dnsLookup = data),
-          fetchAndCache("subdomains", () => fetchWhoisXML("subdomains", `domainName=${query}`, env))
+          fetchAndCache("subdomains", () => fetchWhoisXML("subdomains", `domainName=${query}`, env, API_KEYS.whoisxml))
             .then(data => results.subdomains = data),
-          fetchAndCache("hunter", () => fetchHunter(query, "domain", env))
+          fetchAndCache("hunter", () => fetchHunter(query, "domain", env, API_KEYS.hunter))
             .then(data => results.hunter = data),
-          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "domain", env))
+          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "domain", env, API_KEYS.leakcheck))
             .then(data => results.leakcheck = data),
-          fetchAndCache("reverse_whois", () => fetchReverseWhois(query, env))
+          fetchAndCache("reverse_whois", () => fetchReverseWhois(query, env, API_KEYS.reverseWhois))
             .then(data => results.reverseWhois = data),
-          fetchAndCache("whois_history", () => fetchWhoisXML("whois-history", `domainName=${query}`, env))
+          fetchAndCache("whois_history", () => fetchWhoisXML("whois-history", `domainName=${query}`, env, API_KEYS.whoisxml))
             .then(data => results.whoisHistory = data),
-          fetchAndCache("dns_chronicle", () => fetchWhoisXML("dns-history", `domainName=${query}`, env))
+          fetchAndCache("dns_chronicle", () => fetchWhoisXML("dns-history", `domainName=${query}`, env, API_KEYS.whoisxml))
             .then(data => results.dnsChronicle = data)
         );
       } else if (type === "email") {
         const emailDomain = query.split("@")[1]?.toLowerCase();
         tasks.push(
-          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "email", env))
+          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "email", env, API_KEYS.leakcheck))
             .then(data => results.leakcheck = data),
-          fetchAndCache("osint", () => fetchOSINT(query, "email", env))
+          fetchAndCache("osint", () => fetchOSINT(query, "email", env, API_KEYS.osint))
             .then(data => results.osint = data),
-          fetchAndCache("reverse_whois", () => fetchReverseWhois(query, env))
+          fetchAndCache("reverse_whois", () => fetchReverseWhois(query, env, API_KEYS.reverseWhois))
             .then(data => results.reverseWhois = data)
         );
         if (emailDomain && !freeEmailDomains.includes(emailDomain)) {
           tasks.push(
-            fetchAndCache("hunter", () => fetchHunter(query, "email", env))
+            fetchAndCache("hunter", () => fetchHunter(query, "email", env, API_KEYS.hunter))
               .then(data => results.hunter = data)
           );
         }
       } else if (type === "username") {
         tasks.push(
-          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "username", env))
+          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "username", env, API_KEYS.leakcheck))
             .then(data => results.leakcheck = data),
-          fetchAndCache("osint", () => fetchOSINT(query, "username", env))
+          fetchAndCache("osint", () => fetchOSINT(query, "username", env, API_KEYS.osint))
             .then(data => results.osint = data)
         );
       } else if (type === "phone") {
         tasks.push(
-          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "phone", env))
+          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "phone", env, API_KEYS.leakcheck))
             .then(data => results.leakcheck = data),
-          fetchAndCache("osint", () => fetchOSINT(query, "phone", env))
+          fetchAndCache("osint", () => fetchOSINT(query, "phone", env, API_KEYS.osint))
             .then(data => results.osint = data)
         );
       } else if (type === "hash") {
         tasks.push(
-          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "hash", env))
+          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "hash", env, API_KEYS.leakcheck))
             .then(data => results.leakcheck = data)
         );
       } else if (type === "password") {
         tasks.push(
-          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "password", env))
+          fetchAndCache("leakcheck", () => fetchLeakcheck(query, "password", env, API_KEYS.leakcheck))
             .then(data => results.leakcheck = data)
         );
       }
@@ -164,50 +169,3 @@ export default {
     }
   }
 };
-
-// Helper functions in their respective modules are imported below (see index.js imports)
-// Example of a helper function implementation is provided in each service module.
-
-// -----------------------------------------
-//  (utils/cache.js)
-// -----------------------------------------
-
-
-// -----------------------------------------
-//  (utils/safeFetch.js)
-// -----------------------------------------
-
-
-// -----------------------------------------
-//  (utils/logger.js)
-// -----------------------------------------
-
-
-// -----------------------------------------
-//  (services/whoisxml.js)
-// -----------------------------------------
-
-
-// -----------------------------------------
-//  (services/reverseWhois.js)
-// -----------------------------------------
-
-
-// -----------------------------------------
-//  (services/shodan.js)
-// -----------------------------------------
-
-
-// -----------------------------------------
-//  (services/hunter.js)
-// -----------------------------------------
-
-
-// -----------------------------------------
-//  (services/leakcheck.js)
-// -----------------------------------------
-
-
-// -----------------------------------------
-//  (services/osintIndustries.js)
-// -----------------------------------------
